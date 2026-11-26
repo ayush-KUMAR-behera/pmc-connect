@@ -1,10 +1,12 @@
+
 package com.pmc.service;
 
 import com.pmc.dto.ClassReportRequestDTO;
-import com.pmc.entity.ClassReport;
+import com.pmc.dto.ClassReportResponseDTO;
 
 public interface ClassReportService {
 
-	ClassReport createReport(ClassReportRequestDTO request,
-							  Long authenticatedTeacherId);
+    ClassReportResponseDTO createReport(
+            ClassReportRequestDTO request,
+            Long authenticatedTeacherId);
 }

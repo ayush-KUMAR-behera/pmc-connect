@@ -1,13 +1,12 @@
 
 package com.pmc.service.IMPL;
 
-import com.pmc.service.*;
-
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.pmc.dto.ClassReportRequestDTO;
+import com.pmc.dto.ClassReportResponseDTO;
 import com.pmc.entity.Center;
 import com.pmc.entity.ClassReport;
 import com.pmc.entity.Role;
@@ -18,6 +17,7 @@ import com.pmc.repository.CenterRepository;
 import com.pmc.repository.ClassReportRepository;
 import com.pmc.repository.TeacherAssignmentRepository;
 import com.pmc.repository.UserRepository;
+import com.pmc.service.ClassReportService;
 
 import lombok.RequiredArgsConstructor;
 
@@ -32,11 +32,11 @@ public class ClassReportServiceImpl implements ClassReportService {
 
     @Override
     @Transactional
-    public ClassReport createReport(
+    public ClassReportResponseDTO createReport(
             ClassReportRequestDTO request,
             Long authenticatedTeacherId) {
 
-        // 1. Validate the centre exists and is active.
+        // 1. Validate that the centre exists and is active.
         Center center = centerRepository.findById(request.getCenterId())
                 .filter(Center::isActive)
                 .orElseThrow(() -> new ResourceNotFoundException(
@@ -67,7 +67,7 @@ public class ClassReportServiceImpl implements ClassReportService {
                     "You are not assigned to this centre");
         }
 
-        // 5. Enforce business rules that involve multiple fields.
+        // 5. Validate business rules involving multiple fields.
         if (request.getPresentStudents() > request.getTotalStudents()) {
             throw new IllegalArgumentException(
                     "Present students cannot exceed total students");
@@ -78,9 +78,8 @@ public class ClassReportServiceImpl implements ClassReportService {
                     "End time must be after start time");
         }
 
-        // 6. Map validated request data to the entity.
+        // 6. Map request data to the entity.
         ClassReport report = new ClassReport();
-
         report.setTeacher(teacher);
         report.setCenter(center);
         report.setReportDate(request.getReportDate());
@@ -92,7 +91,40 @@ public class ClassReportServiceImpl implements ClassReportService {
         report.setPresentStudents(request.getPresentStudents());
         report.setTopicsCovered(request.getTopicsCovered().trim());
 
-        // 7. Persist the report.
-        return classReportRepository.save(report);
+        // 7. Save and map to a safe API response.
+        ClassReport savedReport = classReportRepository.save(report);
+
+        return toResponseDTO(savedReport);
+    }
+
+    // Converts the internal entity to the API response DTO.
+    private ClassReportResponseDTO toResponseDTO(ClassReport report) {
+
+        int totalStudents = report.getTotalStudents();
+        int presentStudents = report.getPresentStudents();
+
+        double attendancePercentage =
+                (presentStudents * 100.0) / totalStudents;
+
+        return ClassReportResponseDTO.builder()
+                .id(report.getId())
+                .centerId(report.getCenter().getId())
+                .centerName(report.getCenter().getName())
+                .teacherId(report.getTeacher().getId())
+                .teacherName(report.getTeacher().getFullName())
+                .reportDate(report.getReportDate())
+                .className(report.getClassName())
+                .subject(report.getSubject())
+                .startTime(report.getStartTime())
+                .endTime(report.getEndTime())
+                .totalStudents(totalStudents)
+                .presentStudents(presentStudents)
+                .absentStudents(totalStudents - presentStudents)
+                .attendancePercentage(
+                        Math.round(attendancePercentage * 100.0) / 100.0)
+                .topicsCovered(report.getTopicsCovered())
+                .createdAt(report.getCreatedAt())
+                .updatedAt(report.getUpdatedAt())
+                .build();
     }
 }
