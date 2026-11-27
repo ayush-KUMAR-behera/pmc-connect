@@ -8,6 +8,7 @@ public class PmcBackendApplication {
 
 	public static void main(String[] args) {
 		SpringApplication.run(PmcBackendApplication.class, args);
+		System.out.println("Belive");
 	}
 
 }
